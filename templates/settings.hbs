@@ -1,0 +1,73 @@
+<form class="tof-settings-form" autocomplete="off">
+  <header class="tof-settings-hero">
+    <div class="tof-settings-emblem">
+      <img src="{{logoPath}}" alt="{{localize 'TOF.Title'}}">
+    </div>
+    <div class="tof-settings-heading">
+      <span class="tof-settings-kicker">EasyModules</span>
+      <h1>{{localize "TOF.Settings.Title"}}</h1>
+      <p>{{localize "TOF.Settings.Subtitle"}}</p>
+    </div>
+  </header>
+
+  <section class="tof-settings-list">
+    <label class="tof-setting-row">
+      <span class="tof-setting-icon"><i class="fa-solid fa-bolt"></i></span>
+      <span class="tof-setting-copy">
+        <strong>{{localize "TOF.Settings.ImmediateResults.Name"}}</strong>
+        <small>{{localize "TOF.Settings.ImmediateResults.Hint"}}</small>
+      </span>
+      <span class="tof-setting-toggle">
+        <input type="checkbox" name="showResultsImmediately" {{checked showResultsImmediately}}>
+        <span class="tof-setting-slider"></span>
+      </span>
+    </label>
+
+    <label class="tof-setting-row">
+      <span class="tof-setting-icon"><i class="fa-solid fa-volume-high"></i></span>
+      <span class="tof-setting-copy">
+        <strong>{{localize "TOF.Settings.EnableSounds.Name"}}</strong>
+        <small>{{localize "TOF.Settings.EnableSounds.Hint"}}</small>
+      </span>
+      <span class="tof-setting-toggle">
+        <input type="checkbox" name="enableSoundEffects" {{checked enableSoundEffects}}>
+        <span class="tof-setting-slider"></span>
+      </span>
+    </label>
+
+    <label class="tof-setting-row">
+      <span class="tof-setting-icon"><i class="fa-solid fa-lock"></i></span>
+      <span class="tof-setting-copy">
+        <strong>{{localize "TOF.Settings.RequireRelease.Name"}}</strong>
+        <small>{{localize "TOF.Settings.RequireRelease.Hint"}}</small>
+      </span>
+      <span class="tof-setting-toggle">
+        <input type="checkbox" name="requireGMRelease" {{checked requireGMRelease}}>
+        <span class="tof-setting-slider"></span>
+      </span>
+    </label>
+
+    <label class="tof-setting-row">
+      <span class="tof-setting-icon"><i class="fa-solid fa-message"></i></span>
+      <span class="tof-setting-copy">
+        <strong>{{localize "TOF.Settings.PostChat.Name"}}</strong>
+        <small>{{localize "TOF.Settings.PostChat.Hint"}}</small>
+      </span>
+      <span class="tof-setting-toggle">
+        <input type="checkbox" name="postSummaryToChat" {{checked postSummaryToChat}}>
+        <span class="tof-setting-slider"></span>
+      </span>
+    </label>
+  </section>
+
+  <footer class="tof-settings-footer">
+    <button type="button" class="tof-settings-reset" data-action="reset">
+      <i class="fa-solid fa-arrow-rotate-left"></i>
+      {{localize "TOF.Settings.RestoreDefaults"}}
+    </button>
+    <button type="button" class="tof-settings-save" data-action="save">
+      <i class="fa-solid fa-check"></i>
+      {{localize "TOF.Settings.Save"}}
+    </button>
+  </footer>
+</form>

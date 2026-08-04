@@ -1,0 +1,166 @@
+
+<div class="tof-overlay">
+<div class="tof-atmosphere tof-atmosphere-light"></div>
+  <div class="tof-atmosphere tof-atmosphere-dark"></div>
+  <section class="tof-stage">
+    {{#if isGM}}
+      <button type="button" class="tof-close" data-action="close" aria-label="{{localize 'TOF.Close'}}" title="{{localize 'TOF.Close'}}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    {{/if}}
+    <header class="tof-header">
+      <div class="tof-header-copy">
+        <div class="tof-resolution-badge {{#if groupMode}}is-group{{/if}}">{{resolutionLabel}}</div>
+        <div class="tof-test-name">{{abilityLabel}}</div>
+      </div>
+      <div class="tof-dc">DC <strong>{{dc}}</strong></div>
+    </header>
+
+    <main class="tof-cards">
+      {{#each participants}}
+      <article class="tof-card tof-{{status}} {{#if animateEntrance}}tof-entering{{else}}tof-static{{/if}}" data-token-uuid="{{tokenUuid}}" style="--tof-delay: {{entryDelay}}ms;">
+        <div class="tof-frame">
+          <img class="tof-portrait" src="{{img}}" alt="{{name}}">
+          <div class="tof-vignette"></div>
+
+          {{#if rolled}}
+            <div class="tof-result-layer">
+              <div class="tof-result-number">{{total}}</div>
+              <div class="tof-result-label">{{statusLabel}}</div>
+            </div>
+          {{else if rolling}}
+            <div class="tof-result-layer tof-rolling-layer">
+              <i class="fa-solid fa-dice-d20 fa-spin"></i>
+              <div class="tof-result-label">{{localize "TOF.Rolling"}}</div>
+            </div>
+          {{/if}}
+
+          <div class="tof-card-bottom">
+            <div class="tof-name">{{name}}</div>
+            {{#if hasRollProfile}}
+              <div class="tof-roll-profile" aria-label="{{localize 'TOF.RollSetup'}}">
+                {{#if rollModeCancelled}}
+                  <span class="tof-roll-profile-chip is-cancelled"><i class="fa-solid fa-scale-balanced"></i> {{localize "TOF.Normal"}}</span>
+                  <span class="tof-roll-profile-source is-cancelled"><i class="fa-solid fa-arrows-left-right-to-line"></i> {{cancellationLabel}}</span>
+                {{else}}
+                  {{#if cardModeAdvantage}}
+                    <span class="tof-roll-profile-chip is-advantage"><i class="fa-solid fa-angles-up"></i> {{localize "TOF.Advantage"}}</span>
+                  {{/if}}
+                  {{#if cardModeDisadvantage}}
+                    <span class="tof-roll-profile-chip is-disadvantage"><i class="fa-solid fa-angles-down"></i> {{localize "TOF.Disadvantage"}}</span>
+                  {{/if}}
+                  {{#if rollModeAutomatic}}
+                    <span class="tof-roll-profile-source"><i class="fa-solid fa-wand-magic-sparkles"></i> {{automaticLabel}}</span>
+                  {{/if}}
+                {{/if}}
+                <span class="tof-roll-profile-chip is-modifier {{#if baseModifierNegative}}is-negative{{/if}}"><i class="fa-solid fa-calculator"></i> {{localize "TOF.RollBonus"}} {{baseModifierLabel}}</span>
+                {{#if hasBonus}}
+                  <span class="tof-roll-profile-chip is-bonus"><i class="fa-solid fa-plus"></i> {{localize "TOF.ExtraBonus"}} {{bonusFormula}}</span>
+                {{/if}}
+              </div>
+            {{/if}}
+            {{#if canControl}}
+              <button type="button" class="tof-roll {{#if rollLocked}}is-locked{{/if}}" data-action="roll" data-token-uuid="{{tokenUuid}}" {{#if buttonDisabled}}disabled{{/if}} title="{{#if rollLocked}}{{localize 'TOF.RollsLockedHint'}}{{else}}{{localize 'TOF.Roll'}}{{/if}}">
+                <i class="fa-solid {{rollButtonIcon}}"></i> {{rollButtonLabel}}
+              </button>
+            {{else if waiting}}
+              <div class="tof-waiting">{{localize "TOF.Waiting"}}</div>
+            {{/if}}
+          </div>
+        </div>
+      </article>
+      {{/each}}
+    </main>
+
+    <div class="tof-signature-wrap" aria-hidden="true">
+      <img class="tof-signature-logo {{#if logoSettled}}is-settled{{else}}is-pending{{/if}}" src="{{logoPath}}" alt="Trials of Fate">
+    </div>
+
+    {{#if groupMode}}
+      <section class="tof-group-status {{#if groupOutcome.complete}}{{#if groupOutcome.success}}is-success{{else}}is-failure{{/if}}{{else}}is-pending{{/if}} {{#if groupImpact}}is-impacting{{/if}}">
+        <div class="tof-group-status-icon">
+          <i class="fa-solid {{#if groupOutcome.complete}}{{#if groupOutcome.success}}fa-crown{{else}}fa-skull{{/if}}{{else}}fa-users{{/if}}"></i>
+        </div>
+        <div class="tof-group-status-copy">
+          <strong>{{groupStatusTitle}}</strong>
+          <span>{{groupStatusDetail}}</span>
+        </div>
+        <div class="tof-group-status-count">{{groupOutcome.successes}} / {{groupOutcome.total}}</div>
+      </section>
+    {{/if}}
+
+    {{#if isGM}}
+    <aside class="tof-gm-panel">
+      <div class="tof-gm-panel-header">
+        <span>{{localize "TOF.GMControls"}}</span>
+        <button type="button" class="tof-master-roll-lock {{#if rollsUnlocked}}is-unlocked{{else}}is-locked{{/if}}" data-action="toggleRollLock" title="{{rollLockHint}}">
+          <i class="fa-solid {{#if rollsUnlocked}}fa-lock-open{{else}}fa-lock{{/if}}"></i>
+          <span>{{rollLockLabel}}</span>
+        </button>
+      </div>
+
+      <div class="tof-gm-list">
+        {{#each participants}}
+        <div class="tof-gm-row" data-token-uuid="{{tokenUuid}}">
+          <div class="tof-gm-identity">
+            <img src="{{img}}" alt="{{name}}">
+            <div class="tof-gm-name" title="{{name}}">{{name}}</div>
+          </div>
+          <div class="tof-gm-controls">
+            <select data-gm-control="rollMode" data-token-uuid="{{tokenUuid}}" aria-label="{{localize 'TOF.RollModeFor' name=name}}">
+              <option value="normal" {{#if modeNormal}}selected{{/if}}>{{normalModeLabel}}</option>
+              <option value="advantage" {{#if modeAdvantage}}selected{{/if}}>{{localize "TOF.Advantage"}}</option>
+              <option value="disadvantage" {{#if modeDisadvantage}}selected{{/if}}>{{localize "TOF.Disadvantage"}}</option>
+            </select>
+
+            <input
+              type="text"
+              data-gm-control="bonus"
+              data-token-uuid="{{tokenUuid}}"
+              value="{{bonusInputValue}}"
+              placeholder="{{localize 'TOF.Bonus'}}"
+              aria-label="{{localize 'TOF.BonusFor' name=name}}"
+              autocomplete="off"
+              spellcheck="false"
+              title="{{localize 'TOF.BonusExamples'}}">
+
+            <div class="tof-gm-action-row">
+              <button
+                type="button"
+                class="tof-apply-bonus"
+                data-action="applyBonus"
+                data-token-uuid="{{tokenUuid}}"
+                aria-label="{{localize 'TOF.ApplyBonus'}}"
+                title="{{localize 'TOF.ApplyBonusHint'}}"
+                {{#unless bonusDirty}}disabled{{/unless}}>
+                <i class="fa-solid fa-check"></i>
+                <span>{{localize "TOF.Apply"}}</span>
+              </button>
+
+              <button
+                type="button"
+                class="tof-reroll"
+                data-action="reroll"
+                data-token-uuid="{{tokenUuid}}"
+                aria-label="{{localize 'TOF.AllowRerollFor' name=name}}"
+                title="{{localize 'TOF.Reroll'}}"
+                {{#unless rolled}}disabled{{/unless}}>
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>{{localize "TOF.Reroll"}}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+    </aside>
+    {{/if}}
+
+    <footer class="tof-footer">
+      <div class="tof-progress-track">
+        <span style="width: {{progress}}%"></span>
+      </div>
+      <div class="tof-progress-text">{{rolledCount}} / {{totalCount}}</div>
+    </footer>
+  </section>
+</div>
