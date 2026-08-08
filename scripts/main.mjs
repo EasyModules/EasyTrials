@@ -781,7 +781,7 @@ async function evaluateExtraBonus(formula, actor) {
   const safeFormula = /^[+\-]/.test(formula) ? `0 ${formula}` : formula;
   const bonusRoll = new Roll(safeFormula, actor.getRollData?.() ?? {});
 
-  // Dice terms are inherently asynchronous in Foundry v14. evaluateSync works
+  // Dice terms are inherently asynchronous in current Foundry versions. evaluateSync works
   // for fixed modifiers, but throws "terms that cannot be synchronously
   // evaluated" as soon as a formula contains 1d4, 2d6, and similar terms.
   // Always use the asynchronous evaluator for GM bonus formulas.
@@ -1851,7 +1851,8 @@ async function ensureLaunchMacro() {
     command,
     img,
     flags: {
-      [MODULE_ID]: { generatedMacro: true }
+      [MODULE_ID]: { generatedMacro: true },
+      "easy-modules": { owner: MODULE_ID }
     }
   };
 
@@ -1859,7 +1860,11 @@ async function ensureLaunchMacro() {
     if (macro) {
       await macro.update(data);
     } else {
-      await Macro.create(data);
+      macro = await Macro.create(data);
+    }
+
+    if (macro && game.easyModules?.claimMacro) {
+      await game.easyModules.claimMacro(macro, MODULE_ID);
     }
   } catch (error) {
     console.error(`${MODULE_ID} | Failed to create the launch macro.`, error);
@@ -2045,5 +2050,5 @@ Hooks.once("ready", async () => {
   await ensureLaunchMacro();
   Hooks.callAll("easyTrialsReady", api);
 
-  console.log(`${MODULE_ID} | v1.0.0 ready. Macro: await game.easyTrials.start();`);
+  console.log(`${MODULE_ID} | v1.0.1 ready. Macro: await game.easyTrials.start();`);
 });
