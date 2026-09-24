@@ -18,13 +18,13 @@ The GM selects the participants and test, controls advantage, disadvantage, bonu
 - Detailed final chat summary showing the d20 result, system modifier, extra formula, extra dice, and total.
 - English and Brazilian Portuguese localization.
 - Managed launch macro integrated with the shared EasyModules macro-folder system.
-- Required integration with the EasyModules Hub.
+- Optional integration with the EasyModules Hub.
 
 ## Requirements
 
-- Foundry Virtual Tabletop v13.351 through v14 (verified on v14.364).
-- D&D 5e system 5.3.0 or newer (verified on 5.3.3).
-- EasyModules Hub 1.0.7 or newer (required).
+- Foundry Virtual Tabletop v13.351 through v14 (verified on v14.367).
+- D&D 5e system 5.3.0 or newer (verified on 5.3.3; a 6.x compatibility path is included but still needs Foundry regression validation).
+- EasyModules Hub 1.0.8 or newer (optional).
 
 ### Optional
 
@@ -38,7 +38,7 @@ Paste this manifest URL into Foundry VTT's **Install Module** manifest field:
 https://github.com/EasyModules/EasyTrials/releases/latest/download/module.json
 ```
 
-After installation, enable **EasyModules Hub** and **EasyTrials** in the world. Foundry will prompt you to install or enable the required Hub dependency when available.
+After installation, enable **EasyTrials** in the world. EasyModules Hub is optional and adds centralized launch, configuration, and macro organization when enabled.
 
 For manual installation, extract the release archive so the manifest is located at:
 
@@ -97,7 +97,7 @@ The legacy `game.trialsOfFate` alias remains available for compatibility with ol
 
 ## Compatibility
 
-EasyTrials supports Foundry VTT v13.351 through v14 and is verified against v14.364 with D&D 5e 5.3.3. Dice So Nice support is optional and detected at runtime.
+EasyTrials supports Foundry VTT v13.351 through v14 and is verified against v14.367 with D&D 5e 5.3.3. A D&D 5e 6.x compatibility path is included and awaits Foundry regression validation. Dice So Nice support is optional and detected at runtime.
 
 The module uses Foundry's public settings, socket, macro, document, and application APIs. Major Foundry or D&D 5e releases should be regression-tested before verified compatibility is increased.
 

@@ -18,13 +18,13 @@ O Mestre escolhe os participantes e o teste, controla vantagem, desvantagem, bô
 - Resumo detalhado no chat com d20, modificador do sistema, fórmula extra, dados extras e total.
 - Interface em inglês e português do Brasil.
 - Macro de abertura gerenciada e integrada ao sistema compartilhado de pastas de macros do EasyModules.
-- Integração obrigatória com o EasyModules Hub.
+- Integração opcional com o EasyModules Hub.
 
 ## Requisitos
 
-- Foundry Virtual Tabletop v13.351 até v14 (verificado no v14.364).
-- Sistema D&D 5e 5.3.0 ou mais recente (verificado no 5.3.3).
-- EasyModules Hub 1.0.7 ou mais recente (obrigatório).
+- Foundry Virtual Tabletop v13.351 até v14 (verificado no v14.367).
+- Sistema D&D 5e 5.3.0 ou mais recente (verificado no 5.3.3; há um caminho de compatibilidade 6.x que ainda precisa de regressão no Foundry).
+- EasyModules Hub 1.0.8 ou mais recente (opcional).
 
 ### Opcional
 
@@ -38,7 +38,7 @@ Cole este endereço no campo de manifesto da janela **Install Module** do Foundr
 https://github.com/EasyModules/EasyTrials/releases/latest/download/module.json
 ```
 
-Depois da instalação, ative **EasyModules Hub** e **EasyTrials** no mundo. Quando disponível, o Foundry solicitará a instalação ou ativação da dependência obrigatória do Hub.
+Depois da instalação, ative **EasyTrials** no mundo. O EasyModules Hub é opcional e adiciona abertura, configuração e organização de macros centralizadas quando ativo.
 
 Para instalação manual, extraia o pacote de forma que o manifesto fique em:
 
@@ -97,7 +97,7 @@ O alias legado `game.trialsOfFate` continua disponível para compatibilidade com
 
 ## Compatibilidade
 
-O EasyTrials oferece suporte ao Foundry VTT v13.351 até v14 e é verificado no v14.364 com D&D 5e 5.3.3. O suporte ao Dice So Nice é opcional e detectado em tempo de execução.
+O EasyTrials oferece suporte ao Foundry VTT v13.351 até v14 e é verificado no v14.367 com D&D 5e 5.3.3. Há um caminho de compatibilidade D&D 5e 6.x incluído, aguardando regressão no Foundry. O suporte ao Dice So Nice é opcional e detectado em tempo de execução.
 
 O módulo usa APIs públicas de configurações, sockets, macros, documentos e aplicações do Foundry. Grandes atualizações do Foundry ou D&D 5e devem passar por testes de regressão antes de aumentarmos as versões verificadas.
 

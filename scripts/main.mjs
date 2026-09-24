@@ -931,6 +931,15 @@ function getD20ResultData(roll) {
 
 function inferRollMode(roll, requestedMode) {
   const options = roll?.options ?? {};
+  const ADV_MODE = CONFIG.Dice?.D20Roll?.ADV_MODE ?? { NORMAL: 0, ADVANTAGE: 1, DISADVANTAGE: -1 };
+
+  if (Object.hasOwn(options, "advantageMode")) {
+    const mode = Number(options.advantageMode);
+    if (mode === Number(ADV_MODE.ADVANTAGE)) return "advantage";
+    if (mode === Number(ADV_MODE.DISADVANTAGE)) return "disadvantage";
+    if (mode === Number(ADV_MODE.NORMAL)) return "normal";
+  }
+
   const hasAdvantageOption = Object.hasOwn(options, "advantage");
   const hasDisadvantageOption = Object.hasOwn(options, "disadvantage");
   const advantage = Boolean(options.advantage);
@@ -940,11 +949,13 @@ function inferRollMode(roll, requestedMode) {
   if (disadvantage && !advantage) return "disadvantage";
   if (hasAdvantageOption || hasDisadvantageOption) return "normal";
 
-  if (["advantage", "disadvantage"].includes(requestedMode)) return requestedMode;
   const { d20Rolls, usedD20 } = getD20ResultData(roll);
-  if (d20Rolls.length < 2 || d20Rolls.every(value => value === usedD20)) return "normal";
-  if (usedD20 === Math.max(...d20Rolls)) return "advantage";
-  if (usedD20 === Math.min(...d20Rolls)) return "disadvantage";
+  if (d20Rolls.length >= 2 && !d20Rolls.every(value => value === usedD20)) {
+    if (usedD20 === Math.max(...d20Rolls)) return "advantage";
+    if (usedD20 === Math.min(...d20Rolls)) return "disadvantage";
+  }
+
+  if (["advantage", "disadvantage"].includes(requestedMode)) return requestedMode;
   return "normal";
 }
 
@@ -996,8 +1007,112 @@ function resolveCombinedRollState(manualMode="normal", automaticState={}) {
   };
 }
 
+function getDnd5eMajorVersion() {
+  const major = Number.parseInt(String(game.system?.version ?? "0").split(".")[0], 10);
+  return Number.isFinite(major) ? major : 0;
+}
+
+function usesDnd5eV6RollModel() {
+  return game.system?.id === "dnd5e" && getDnd5eMajorVersion() >= 6;
+}
+
+function getD20ModificationField() {
+  return globalThis.dnd5e?.dataModels?.shared?.D20RollModificationField ?? null;
+}
+
+function stateFromAdvantageFlags(advantage=false, disadvantage=false) {
+  const hasAdvantage = Boolean(advantage);
+  const hasDisadvantage = Boolean(disadvantage);
+  const mode = hasAdvantage === hasDisadvantage
+    ? "normal"
+    : (hasAdvantage ? "advantage" : "disadvantage");
+  return {
+    advantageCount: Number(hasAdvantage),
+    disadvantageCount: Number(hasDisadvantage),
+    hasAdvantage,
+    hasDisadvantage,
+    advantage: mode === "advantage",
+    disadvantage: mode === "disadvantage",
+    cancelled: hasAdvantage && hasDisadvantage,
+    mode
+  };
+}
+
+function buildModernRollData(actor, { abilityId, skillId=null, category }) {
+  const rollData = actor.getRollData?.({ roll: true }) ?? actor.getRollData?.() ?? {};
+  rollData.roll ??= {};
+
+  let proficient = false;
+  if (category === "save") {
+    proficient = Number(actor.system.abilities?.[abilityId]?.save?.prof?.multiplier ?? 0) >= 1;
+  } else if (skillId) {
+    const calculate = globalThis.dnd5e?.dataModels?.actor?.CommonTemplate?.calculateSkillToolProficiency;
+    if (typeof calculate === "function") {
+      try {
+        proficient = Number(calculate(actor, abilityId, { ability: abilityId, skill: skillId })?.multiplier ?? 0) >= 1;
+      } catch (_error) {
+        proficient = Number(actor.system.skills?.[skillId]?.prof?.multiplier ?? 0) >= 1;
+      }
+    } else {
+      proficient = Number(actor.system.skills?.[skillId]?.prof?.multiplier ?? 0) >= 1;
+    }
+  }
+
+  Object.assign(rollData.roll, {
+    ability: abilityId,
+    proficient,
+    ...(skillId ? { skill: skillId, type: "skill" } : { type: "ability" })
+  });
+  return rollData;
+}
+
+function getModernDnd5eRollState(actor, challenge, manualMode="normal") {
+  const Field = getD20ModificationField();
+  if (!Field?.combineFields || !actor || !challenge) return null;
+
+  const counts = {
+    advantages: { count: Number(manualMode === "advantage") },
+    disadvantages: { count: Number(manualMode === "disadvantage") }
+  };
+
+  try {
+    if (challenge.testType === "skill") {
+      const skillId = challenge.testKey;
+      const skillConfig = CONFIG.DND5E?.skills?.[skillId];
+      const skill = actor.system.skills?.[skillId];
+      const abilityId = skill?.ability ?? skillConfig?.ability;
+      if (!abilityId) return getPreparedRollState();
+      const rollData = buildModernRollData(actor, { abilityId, skillId, category: "check" });
+      const { advantage, disadvantage } = Field.combineFields(actor.system, [
+        `abilities.${abilityId}.check.roll`,
+        "rolls.ability.check",
+        "rolls.ability.skill",
+        `skills.${skillId}.roll`
+      ], { ...counts, rules: { category: "check", actor, rollData } });
+      return stateFromAdvantageFlags(advantage, disadvantage);
+    }
+
+    const abilityId = challenge.testKey;
+    if (!actor.system.abilities?.[abilityId]) return getPreparedRollState();
+    const rollData = buildModernRollData(actor, { abilityId, category: "save" });
+    const { advantage, disadvantage } = Field.combineFields(actor.system, [
+      `abilities.${abilityId}.save.roll`,
+      "rolls.ability.save"
+    ], { ...counts, rules: { category: "save", actor, rollData } });
+    return stateFromAdvantageFlags(advantage, disadvantage);
+  } catch (error) {
+    console.warn(`${MODULE_ID} | Could not resolve dnd5e 6 roll state; using legacy fields.`, error);
+    return null;
+  }
+}
+
 function getAutomaticRollState(actor, challenge) {
   if (!actor || !challenge) return getPreparedRollState();
+
+  if (usesDnd5eV6RollModel()) {
+    const modernState = getModernDnd5eRollState(actor, challenge, "normal");
+    if (modernState) return modernState;
+  }
 
   if (challenge.testType === "skill") {
     const skillId = challenge.testKey;
@@ -1015,12 +1130,13 @@ function getAutomaticRollState(actor, challenge) {
   return getPreparedRollState(ability?.save?.roll?.mode);
 }
 
-
 function getEffectiveRollState(actor, challenge, control={}) {
-  return resolveCombinedRollState(
-    control.rollMode ?? "normal",
-    getAutomaticRollState(actor, challenge)
-  );
+  const manualMode = control.rollMode ?? "normal";
+  if (usesDnd5eV6RollModel()) {
+    const modernState = getModernDnd5eRollState(actor, challenge, manualMode);
+    if (modernState) return { ...modernState, manualMode };
+  }
+  return resolveCombinedRollState(manualMode, getAutomaticRollState(actor, challenge));
 }
 
 function addFormulaPart(parts, formula) {
@@ -1053,7 +1169,136 @@ async function evaluateFastDnd5eRolls(rollConfig, postHook, postData, { callV2=f
   return rolls[0] ?? null;
 }
 
-async function rollSavingThrowFast(actor, challenge, control, bonusFormula, options={}) {
+async function rollSavingThrowFastV6(actor, challenge, control, bonusFormula, options={}) {
+  const D20Roll = CONFIG.Dice?.D20Roll;
+  const Field = getD20ModificationField();
+  const abilityId = challenge.testKey;
+  const ability = actor.system.abilities?.[abilityId];
+  if (!D20Roll || !Field?.combineFields || !ability) return null;
+
+  const rollData = buildModernRollData(actor, { abilityId, category: "save" });
+  const manualMode = control.rollMode ?? "normal";
+  const { advantage, disadvantage, bonus, maximum, minimum } = Field.combineFields(actor.system, [
+    `abilities.${abilityId}.save.roll`,
+    "rolls.ability.save"
+  ], {
+    advantages: { count: Number(manualMode === "advantage") },
+    disadvantages: { count: Number(manualMode === "disadvantage") },
+    rules: { category: "save", actor, rollData }
+  });
+
+  let { parts, data } = D20Roll.constructParts({
+    mod: ability.mod,
+    prof: ability.save?.prof?.hasProficiency ? ability.save.prof.term : null,
+    ruleBonus: bonus,
+    cover: abilityId === "dex" ? actor.system.attributes?.ac?.cover : null
+  }, rollData);
+  addFormulaPart(parts, bonusFormula);
+  actor.addConditionRollReduction?.(parts, data);
+
+  const rollConfig = {
+    ability: abilityId,
+    subject: actor,
+    target: challenge.dc,
+    hookNames: ["SavingThrow", "d20Test"],
+    halflingLucky: actor.getFlag?.("dnd5e", "halflingLucky"),
+    advantage,
+    disadvantage,
+    rolls: [D20Roll.mergeConfigs({
+      parts,
+      data,
+      options: { maximum, minimum }
+    }, {})]
+  };
+
+  return evaluateFastDnd5eRolls(
+    rollConfig,
+    "dnd5e.rollSavingThrow",
+    { ability: abilityId, subject: actor },
+    options
+  );
+}
+
+async function rollSkillFastV6(actor, challenge, control, bonusFormula, options={}) {
+  const D20Roll = CONFIG.Dice?.D20Roll;
+  const Field = getD20ModificationField();
+  const skillId = challenge.testKey;
+  const skillConfig = CONFIG.DND5E?.skills?.[skillId];
+  const skill = actor.system.skills?.[skillId];
+  if (!D20Roll || !Field?.combineFields || !skillConfig || !skill) return null;
+
+  const abilityId = skill.ability ?? skillConfig.ability;
+  const ability = actor.system.abilities?.[abilityId];
+  if (!ability) return null;
+
+  const process = { ability: abilityId, skill: skillId };
+  const calculate = globalThis.dnd5e?.dataModels?.actor?.CommonTemplate?.calculateSkillToolProficiency;
+  let proficiency = skill.prof ?? skill.proficiency;
+  if (typeof calculate === "function") {
+    try {
+      proficiency = calculate(actor, abilityId, process) ?? proficiency;
+      const hostActor = actor.isPolymorphed && actor.flags?.dnd5e?.transformOptions?.mergeSkills
+        ? game.actors.get(actor.flags.dnd5e?.originalActor)
+        : null;
+      if (hostActor) {
+        const originalProf = calculate(hostActor, abilityId, process);
+        if (Number(originalProf?.multiplier ?? 0) > Number(proficiency?.multiplier ?? 0)) proficiency = originalProf;
+      }
+    } catch (error) {
+      console.debug(`${MODULE_ID} | Falling back to prepared skill proficiency.`, error);
+    }
+  }
+
+  const rollData = buildModernRollData(actor, { abilityId, skillId, category: "check" });
+  if (rollData.roll) rollData.roll.proficient = Number(proficiency?.multiplier ?? 0) >= 1;
+
+  const manualMode = control.rollMode ?? "normal";
+  const { advantage, disadvantage, bonus, maximum, minimum } = Field.combineFields(actor.system, [
+    `abilities.${abilityId}.check.roll`,
+    "rolls.ability.check",
+    "rolls.ability.skill",
+    `skills.${skillId}.roll`
+  ], {
+    advantages: { count: Number(manualMode === "advantage") },
+    disadvantages: { count: Number(manualMode === "disadvantage") },
+    rules: { category: "check", actor, rollData }
+  });
+
+  let { parts, data } = D20Roll.constructParts({
+    mod: ability.mod,
+    prof: proficiency?.hasProficiency ? proficiency.term : null,
+    ruleBonus: bonus
+  }, { ...rollData });
+  addFormulaPart(parts, bonusFormula);
+  actor.addConditionRollReduction?.(parts, data);
+  data.abilityId = abilityId;
+
+  const rollConfig = {
+    skill: skillId,
+    ability: abilityId,
+    subject: actor,
+    target: challenge.dc,
+    hookNames: ["skill", "abilityCheck", "d20Test"],
+    halflingLucky: actor.getFlag?.("dnd5e", "halflingLucky"),
+    reliableTalent: Number(skill.value ?? 0) >= 1 && actor.getFlag?.("dnd5e", "reliableTalent"),
+    advantage,
+    disadvantage,
+    rolls: [D20Roll.mergeConfigs({
+      parts,
+      data,
+      options: { maximum, minimum }
+    }, {})]
+  };
+
+  return evaluateFastDnd5eRolls(
+    rollConfig,
+    "dnd5e.rollSkill",
+    { ability: abilityId, skill: skillId, subject: actor },
+    { ...options, callV2: true }
+  );
+}
+
+async function rollSavingThrowFastLegacy(actor, challenge, control, bonusFormula, options={}) {
   const D20Roll = CONFIG.Dice?.D20Roll;
   const abilityId = challenge.testKey;
   const ability = actor.system.abilities?.[abilityId];
@@ -1098,7 +1343,7 @@ async function rollSavingThrowFast(actor, challenge, control, bonusFormula, opti
   );
 }
 
-async function rollSkillFast(actor, challenge, control, bonusFormula, options={}) {
+async function rollSkillFastLegacy(actor, challenge, control, bonusFormula, options={}) {
   const D20Roll = CONFIG.Dice?.D20Roll;
   const skillId = challenge.testKey;
   const skillConfig = CONFIG.DND5E?.skills?.[skillId];
@@ -1150,6 +1395,20 @@ async function rollSkillFast(actor, challenge, control, bonusFormula, options={}
     { ability: abilityId, skill: skillId, subject: actor },
     { ...options, callV2: true }
   );
+}
+
+async function rollSavingThrowFast(actor, challenge, control, bonusFormula, options={}) {
+  if (usesDnd5eV6RollModel()) {
+    return rollSavingThrowFastV6(actor, challenge, control, bonusFormula, options);
+  }
+  return rollSavingThrowFastLegacy(actor, challenge, control, bonusFormula, options);
+}
+
+async function rollSkillFast(actor, challenge, control, bonusFormula, options={}) {
+  if (usesDnd5eV6RollModel()) {
+    return rollSkillFastV6(actor, challenge, control, bonusFormula, options);
+  }
+  return rollSkillFastLegacy(actor, challenge, control, bonusFormula, options);
 }
 
 async function rollWithFastDnd5eWorkflow(actor, challenge, control, bonusFormula, options={}) {
@@ -1312,28 +1571,20 @@ async function requestRoll(challengeId, tokenUuid) {
     const effectiveRollState = getEffectiveRollState(actor, challenge, control);
     let roll = null;
 
-    if (showImmediately) {
-      // Instant mode is deliberately internal: no Dice So Nice call, no dnd5e
-      // presentation hook, and therefore no visual or timing delay before the
-      // EasyTrials card reveals success or failure.
-      roll = await rollInternally(actor, effectiveRollState, modifier);
-    } else {
-      try {
-        // EasyTrials owns the single combined Dice So Nice animation. Suppressing
-        // the dnd5e post-roll presentation hooks prevents the base d20 from being
-        // animated once by the system and then duplicated beside the GM bonus die.
-        roll = await rollWithFastDnd5eWorkflow(
-          actor,
-          challenge,
-          control,
-          "",
-          { emitHooks: false }
-        );
-      } catch (systemRollError) {
-        console.warn(`${MODULE_ID} | Fast dnd5e roll workflow failed; using internal fallback.`, systemRollError);
-      }
-      if (!roll) roll = await rollInternally(actor, effectiveRollState, modifier);
+    try {
+      // Both immediate and cinematic modes use the same dnd5e D20Roll construction.
+      // Immediate mode simply skips Dice So Nice presentation after evaluation.
+      roll = await rollWithFastDnd5eWorkflow(
+        actor,
+        challenge,
+        control,
+        "",
+        { emitHooks: false }
+      );
+    } catch (systemRollError) {
+      console.warn(`${MODULE_ID} | Fast dnd5e roll workflow failed; using internal fallback.`, systemRollError);
     }
+    if (!roll) roll = await rollInternally(actor, effectiveRollState, modifier);
 
     // The GM bonus is evaluated independently so its formula and exact result can
     // be shown in the final breakdown. In cinematic mode its dice are merged into
@@ -2050,5 +2301,5 @@ Hooks.once("ready", async () => {
   await ensureLaunchMacro();
   Hooks.callAll("easyTrialsReady", api);
 
-  console.log(`${MODULE_ID} | v1.0.1 ready. Macro: await game.easyTrials.start();`);
+  console.log(`${MODULE_ID} | v1.0.2 ready. Macro: await game.easyTrials.start();`);
 });
